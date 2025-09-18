@@ -76,19 +76,32 @@ def load_data(uploaded_file=None):
         # If user uploaded a file, use that
         if uploaded_file is not None:
             df = pd.read_csv(uploaded_file)
-            preprocessor = DataPreprocessor()
-            df_processed = preprocessor.clean_data(df)
-            return df_processed, preprocessor
+            if MODULES_AVAILABLE:
+                preprocessor = DataPreprocessor()
+                df_processed = preprocessor.clean_data(df)
+                return df_processed, preprocessor
+            else:
+                return df, None
+        
+        # Try sample data as fallback
+        if os.path.exists("sample_data.csv"):
+            df = pd.read_csv("sample_data.csv")
+            if MODULES_AVAILABLE:
+                preprocessor = DataPreprocessor()
+                df_processed = preprocessor.clean_data(df)
+                return df_processed, preprocessor
+            else:
+                return df, None
         
         # Check if processed data exists
-        if os.path.exists(config.PROCESSED_DATA_PATH):
+        if MODULES_AVAILABLE and hasattr(config, 'PROCESSED_DATA_PATH') and os.path.exists(config.PROCESSED_DATA_PATH):
             preprocessor = DataPreprocessor()
             df = preprocessor.load_preprocessed_data(config.PROCESSED_DATA_PATH)
             if df is not None:
                 return df, preprocessor
         
         # If not, process the raw data
-        if os.path.exists(config.DATA_PATH):
+        if MODULES_AVAILABLE and hasattr(config, 'DATA_PATH') and os.path.exists(config.DATA_PATH):
             df, preprocessor = preprocess_marketing_data(config.DATA_PATH, config.PROCESSED_DATA_PATH)
             return df, preprocessor
         else:
@@ -101,20 +114,29 @@ def load_data(uploaded_file=None):
 @st.cache_resource
 def load_models(df):
     """Load or train ML models"""
-    model_path = "models/trained_models.pkl"
-    ml_models = MarketingMLModels()
-    
-    if os.path.exists(model_path):
-        if ml_models.load_models(model_path):
-            return ml_models
-    
-    # Train models if not found
-    with st.spinner("Training AI models... This may take a few minutes."):
-        ml_models = train_all_models(df)
+    if not MODULES_AVAILABLE:
+        return None
         
-        # Create models directory if it doesn't exist
-        os.makedirs("models", exist_ok=True)
-        ml_models.save_models(model_path)
+    try:
+        model_path = "models/trained_models.pkl"
+        ml_models = MarketingMLModels()
+        
+        if os.path.exists(model_path):
+            if ml_models.load_models(model_path):
+                return ml_models
+        
+        # Train models if not found
+        with st.spinner("Training AI models... This may take a few minutes."):
+            ml_models = train_all_models(df)
+            
+            # Create models directory if it doesn't exist
+            os.makedirs("models", exist_ok=True)
+            ml_models.save_models(model_path)
+        
+        return ml_models
+    except Exception as e:
+        st.error(f"Error loading models: {e}")
+        return None
     
     return ml_models
 
@@ -142,10 +164,14 @@ def main():
                 st.info("📋 **Using sample dataset** - Upload your own data for personalized analysis!")
                 try:
                     df = pd.read_csv(sample_path)
-                    preprocessor = DataPreprocessor()
-                    df = preprocessor.clean_data(df)
+                    if MODULES_AVAILABLE:
+                        preprocessor = DataPreprocessor()
+                        df = preprocessor.clean_data(df)
+                    else:
+                        preprocessor = None
                 except Exception as e:
                     st.error(f"Error loading sample data: {e}")
+                    df = None
                     df = None
             
             if df is None:
@@ -173,7 +199,11 @@ def main():
     page = st.sidebar.selectbox("Choose a page", list(config.PAGES.values()))
     
     # Load ML models
-    ml_models = load_models(df)
+    ml_models = load_models(df) if MODULES_AVAILABLE else None
+    
+    # Show warning if modules not available
+    if not MODULES_AVAILABLE:
+        st.warning("⚠️ Some advanced features may not be available due to missing dependencies. Basic analytics will still work.")
     
     # Page routing
     if page == config.PAGES['overview']:
@@ -191,9 +221,19 @@ def show_overview_page(df):
     """Display overview page with key metrics and insights"""
     st.header("🏠 Executive Overview")
     
-    # Create visualizer
-    viz = MarketingVisualizer(df)
-    metrics = viz.create_overview_metrics()
+    if MODULES_AVAILABLE:
+        # Create visualizer
+        viz = MarketingVisualizer(df)
+        metrics = viz.create_overview_metrics()
+    else:
+        # Fallback metrics calculation
+        metrics = {
+            'Total Campaigns': len(df),
+            'Avg ROI': df['ROI'].mean() if 'ROI' in df.columns else 0,
+            'Avg Conversion Rate': df['Conversion_Rate'].mean() if 'Conversion_Rate' in df.columns else 0,
+            'Total Spend': df['Acquisition_Cost'].sum() if 'Acquisition_Cost' in df.columns else 0,
+            'Avg Engagement Score': df['Engagement_Score'].mean() if 'Engagement_Score' in df.columns else 0
+        }
     
     # Key metrics
     col1, col2, col3, col4, col5 = st.columns(5)
@@ -268,13 +308,28 @@ def show_overview_page(df):
     
     with col1:
         # ROI distribution
-        fig_roi = viz.plot_roi_by_campaign_type()
-        st.plotly_chart(fig_roi, use_container_width=True)
+        if MODULES_AVAILABLE:
+            fig_roi = viz.plot_roi_by_campaign_type()
+            st.plotly_chart(fig_roi, use_container_width=True)
+        else:
+            # Fallback chart
+            if 'ROI' in df.columns and 'Campaign_Type' in df.columns:
+                fig_roi = px.box(df, x='Campaign_Type', y='ROI', title="ROI Distribution by Campaign Type")
+                fig_roi.update_layout(xaxis_tickangle=45)
+                st.plotly_chart(fig_roi, use_container_width=True)
     
     with col2:
         # Channel effectiveness
-        fig_channel = viz.plot_channel_effectiveness()
-        st.plotly_chart(fig_channel, use_container_width=True)
+        if MODULES_AVAILABLE:
+            fig_channel = viz.plot_channel_effectiveness()
+            st.plotly_chart(fig_channel, use_container_width=True)
+        else:
+            # Fallback chart
+            if 'Channel_Used' in df.columns and 'ROI' in df.columns:
+                channel_roi = df.groupby('Channel_Used')['ROI'].mean().reset_index()
+                fig_channel = px.bar(channel_roi, x='Channel_Used', y='ROI', title="Average ROI by Channel")
+                fig_channel.update_layout(xaxis_tickangle=45)
+                st.plotly_chart(fig_channel, use_container_width=True)
 
 def show_campaign_performance_page(df):
     """Display campaign performance analysis"""
