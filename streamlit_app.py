@@ -53,9 +53,16 @@ st.markdown("""
 
 # Load and cache data
 @st.cache_data
-def load_data():
+def load_data(uploaded_file=None):
     """Load and preprocess marketing data"""
     try:
+        # If user uploaded a file, use that
+        if uploaded_file is not None:
+            df = pd.read_csv(uploaded_file)
+            preprocessor = DataPreprocessor()
+            df_processed = preprocessor.clean_data(df)
+            return df_processed, preprocessor
+        
         # Check if processed data exists
         if os.path.exists(config.PROCESSED_DATA_PATH):
             preprocessor = DataPreprocessor()
@@ -68,7 +75,6 @@ def load_data():
             df, preprocessor = preprocess_marketing_data(config.DATA_PATH, config.PROCESSED_DATA_PATH)
             return df, preprocessor
         else:
-            st.error(f"Data file not found: {config.DATA_PATH}")
             return None, None
     except Exception as e:
         st.error(f"Error loading data: {e}")
