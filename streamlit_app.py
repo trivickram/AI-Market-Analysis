@@ -78,7 +78,9 @@ def load_data(uploaded_file=None):
             df = pd.read_csv(uploaded_file)
             if MODULES_AVAILABLE:
                 preprocessor = DataPreprocessor()
-                df_processed = preprocessor.clean_data(df)
+                df_clean = preprocessor.clean_data(df)
+                df_features = preprocessor.engineer_features(df_clean)
+                df_processed = preprocessor.encode_categorical_features(df_features)
                 return df_processed, preprocessor
             else:
                 return df, None
@@ -88,7 +90,9 @@ def load_data(uploaded_file=None):
             df = pd.read_csv("sample_data.csv")
             if MODULES_AVAILABLE:
                 preprocessor = DataPreprocessor()
-                df_processed = preprocessor.clean_data(df)
+                df_clean = preprocessor.clean_data(df)
+                df_features = preprocessor.engineer_features(df_clean)
+                df_processed = preprocessor.encode_categorical_features(df_features)
                 return df_processed, preprocessor
             else:
                 return df, None
@@ -122,11 +126,32 @@ def load_models(df):
         ml_models = MarketingMLModels()
         
         if os.path.exists(model_path):
-            if ml_models.load_models(model_path):
-                return ml_models
+            try:
+                if ml_models.load_models(model_path):
+                    # Verify the model works with current data structure
+                    required_encoded_cols = ['Campaign_Type_encoded', 'Target_Audience_encoded', 
+                                           'Channel_Used_encoded', 'Location_encoded', 
+                                           'Language_encoded', 'Customer_Segment_encoded']
+                    
+                    missing_cols = [col for col in required_encoded_cols if col not in df.columns]
+                    if not missing_cols:
+                        return ml_models
+                    else:
+                        st.info("🔄 Data structure changed. Retraining models...")
+            except Exception as e:
+                st.info(f"🔄 Model loading failed: {str(e)[:100]}... Retraining models...")
         
         # Train models if not found
         with st.spinner("Training AI models... This may take a few minutes."):
+            # Check if data has required encoded features
+            required_encoded_cols = ['Campaign_Type_encoded', 'Target_Audience_encoded', 
+                                   'Channel_Used_encoded', 'Location_encoded', 
+                                   'Language_encoded', 'Customer_Segment_encoded']
+            
+            missing_cols = [col for col in required_encoded_cols if col not in df.columns]
+            if missing_cols:
+                st.warning(f"⚠️ Missing encoded features: {missing_cols}. Retraining models with current data structure.")
+            
             ml_models = train_all_models(df)
             
             # Create models directory if it doesn't exist
@@ -166,12 +191,13 @@ def main():
                     df = pd.read_csv(sample_path)
                     if MODULES_AVAILABLE:
                         preprocessor = DataPreprocessor()
-                        df = preprocessor.clean_data(df)
+                        df_clean = preprocessor.clean_data(df)
+                        df_features = preprocessor.engineer_features(df_clean)
+                        df = preprocessor.encode_categorical_features(df_features)
                     else:
                         preprocessor = None
                 except Exception as e:
                     st.error(f"Error loading sample data: {e}")
-                    df = None
                     df = None
             
             if df is None:
