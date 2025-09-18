@@ -29,11 +29,15 @@ class DataPreprocessor:
         
         # Remove dollar signs and convert to float
         if 'Acquisition_Cost' in df_clean.columns:
-            df_clean['Acquisition_Cost'] = df_clean['Acquisition_Cost'].str.replace('$', '').str.replace(',', '').astype(float)
+            if df_clean['Acquisition_Cost'].dtype == 'object':
+                df_clean['Acquisition_Cost'] = df_clean['Acquisition_Cost'].str.replace('$', '').str.replace(',', '').astype(float)
         
         # Convert duration to numeric
         if 'Duration' in df_clean.columns:
-            df_clean['Duration'] = df_clean['Duration'].str.extract(r'(\d+)').astype(int)
+            if df_clean['Duration'].dtype == 'object':
+                df_clean['Duration'] = df_clean['Duration'].str.extract(r'(\d+)').astype(int)
+            else:
+                df_clean['Duration'] = df_clean['Duration'].astype(int)
         
         # Convert date column
         if 'Date' in df_clean.columns:
