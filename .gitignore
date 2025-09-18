@@ -17,6 +17,7 @@ pip-wheel-metadata/
 .idea/
 
 # Data and models
+data/
 models/
 logs/
 

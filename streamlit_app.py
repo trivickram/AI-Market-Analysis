@@ -107,11 +107,49 @@ def main():
     # Header
     st.markdown('<h1 class="main-header">🚀 AI-Powered Marketing Analytics Dashboard</h1>', unsafe_allow_html=True)
     
+    # Check for uploaded file first
+    uploaded_file = st.file_uploader(
+        "📁 Upload your marketing campaign dataset (CSV)",
+        type=['csv'],
+        help="Upload a CSV file with columns like Campaign_Type, ROI, Target_Audience, etc."
+    )
+    
     # Load data
-    df, preprocessor = load_data()
+    df, preprocessor = load_data(uploaded_file)
+    
     if df is None:
-        st.error("Unable to load data. Please check your data file.")
-        return
+        if uploaded_file is None:
+            # Try to load sample data as fallback
+            sample_path = "sample_data.csv"
+            if os.path.exists(sample_path):
+                st.info("📋 **Using sample dataset** - Upload your own data for personalized analysis!")
+                try:
+                    df = pd.read_csv(sample_path)
+                    preprocessor = DataPreprocessor()
+                    df = preprocessor.clean_data(df)
+                except Exception as e:
+                    st.error(f"Error loading sample data: {e}")
+                    df = None
+            
+            if df is None:
+                st.warning("📋 **No data available!** Please upload your marketing campaign dataset to get started.")
+                st.info("Your CSV should contain columns like: Campaign_Type, ROI, Target_Audience, Channel_Used, Conversion_Rate, etc.")
+                
+                # Show sample data format
+                st.subheader("📊 Expected Data Format")
+                sample_data = {
+                    'Campaign_Type': ['Email', 'Social Media', 'PPC'],
+                    'ROI': [3.2, 2.8, 4.1],
+                    'Target_Audience': ['Young Adults', 'Adults', 'Seniors'],
+                    'Channel_Used': ['Email', 'Facebook', 'Google Ads'],
+                    'Conversion_Rate': [5.2, 3.8, 6.1],
+                    'Clicks': [1500, 2200, 1800],
+                    'Impressions': [25000, 45000, 32000]
+                }
+                st.dataframe(pd.DataFrame(sample_data), use_container_width=True)
+                return
+    
+    st.success(f"✅ Data loaded successfully! {len(df)} campaigns analyzed.")
     
     # Sidebar navigation
     st.sidebar.title("📊 Navigation")
