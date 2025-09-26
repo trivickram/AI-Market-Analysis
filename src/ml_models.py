@@ -76,6 +76,44 @@ class MarketingMLModels:
         print(f"✅ ROI Prediction Model trained - R² Score: {r2:.4f}")
         return model, scaler, self.model_metrics['roi_prediction']
     
+    def train_roi_prediction_model_fast(self, df):
+        """Train ROI prediction model with reduced complexity for faster deployment"""
+        X, y, feature_columns = self.prepare_roi_prediction_data(df)
+        
+        # Split the data
+        X_train, X_test, y_train, y_test = train_test_split(
+            X, y, test_size=0.3, random_state=42  # Larger test split for smaller training set
+        )
+        
+        # Scale the features
+        scaler = StandardScaler()
+        X_train_scaled = scaler.fit_transform(X_train)
+        X_test_scaled = scaler.transform(X_test)
+        
+        # Train model with reduced complexity
+        model = RandomForestRegressor(n_estimators=50, max_depth=10, random_state=42)  # Reduced complexity
+        model.fit(X_train_scaled, y_train)
+        
+        # Make predictions
+        y_pred = model.predict(X_test_scaled)
+        
+        # Calculate metrics
+        r2 = r2_score(y_test, y_pred)
+        mse = mean_squared_error(y_test, y_pred)
+        rmse = np.sqrt(mse)
+        
+        # Store model and artifacts
+        self.models['roi_prediction'] = model
+        self.scalers['roi_prediction'] = scaler
+        self.model_metrics['roi_prediction'] = {
+            'r2_score': r2,
+            'rmse': rmse,
+            'feature_importance': dict(zip(feature_columns, model.feature_importances_))
+        }
+        
+        print(f"⚡ Fast ROI Prediction Model trained - R² Score: {r2:.4f}")
+        return model, scaler, self.model_metrics['roi_prediction']
+    
     def prepare_classification_data(self, df):
         """Prepare data for campaign success classification"""
         classification_features = ['Duration', 'Acquisition_Cost', 'Campaign_Type_encoded', 
@@ -123,6 +161,42 @@ class MarketingMLModels:
         print(f"✅ Classification Model trained - Accuracy: {accuracy:.4f}")
         return model, scaler, self.model_metrics['classification']
     
+    def train_classification_model_fast(self, df):
+        """Train campaign success classification model with reduced complexity"""
+        X, y, feature_columns = self.prepare_classification_data(df)
+        
+        # Split the data
+        X_train, X_test, y_train, y_test = train_test_split(
+            X, y, test_size=0.3, random_state=42, stratify=y
+        )
+        
+        # Scale the features
+        scaler = StandardScaler()
+        X_train_scaled = scaler.fit_transform(X_train)
+        X_test_scaled = scaler.transform(X_test)
+        
+        # Train model with reduced complexity
+        model = RandomForestClassifier(n_estimators=50, max_depth=10, random_state=42)
+        model.fit(X_train_scaled, y_train)
+        
+        # Make predictions
+        y_pred = model.predict(X_test_scaled)
+        y_prob = model.predict_proba(X_test_scaled)[:, 1]
+        
+        # Calculate metrics
+        accuracy = model.score(X_test_scaled, y_test)
+        
+        # Store model and artifacts
+        self.models['classification'] = model
+        self.scalers['classification'] = scaler
+        self.model_metrics['classification'] = {
+            'accuracy': accuracy,
+            'feature_importance': dict(zip(feature_columns, model.feature_importances_))
+        }
+        
+        print(f"⚡ Fast Classification Model trained - Accuracy: {accuracy:.4f}")
+        return model, scaler, self.model_metrics['classification']
+    
     def train_clustering_model(self, df):
         """Train customer segmentation clustering model"""
         segment_features = ['Conversion_Rate', 'ROI', 'Engagement_Score', 'CTR', 'Cost_Per_Click']
@@ -147,6 +221,32 @@ class MarketingMLModels:
         }
         
         print(f"✅ Clustering Model trained - {n_clusters} clusters")
+        return kmeans, scaler, cluster_labels
+    
+    def train_clustering_model_fast(self, df):
+        """Train customer segmentation clustering model with optimized performance"""
+        segment_features = ['Conversion_Rate', 'ROI', 'Engagement_Score', 'CTR', 'Cost_Per_Click']
+        X = df[segment_features].fillna(df[segment_features].median())
+        
+        # Scale the features
+        scaler = StandardScaler()
+        X_scaled = scaler.fit_transform(X)
+        
+        # Train K-means clustering with reduced iterations
+        n_clusters = 3  # Reduced clusters for faster training
+        kmeans = KMeans(n_clusters=n_clusters, random_state=42, max_iter=100)  # Reduced iterations
+        cluster_labels = kmeans.fit_predict(X_scaled)
+        
+        # Store model and artifacts
+        self.models['clustering'] = kmeans
+        self.scalers['clustering'] = scaler
+        self.model_metrics['clustering'] = {
+            'n_clusters': n_clusters,
+            'inertia': kmeans.inertia_,
+            'feature_columns': segment_features
+        }
+        
+        print(f"⚡ Fast Clustering Model trained - {n_clusters} clusters")
         return kmeans, scaler, cluster_labels
     
     def predict_roi(self, duration, budget, campaign_type_enc, target_audience_enc, 
@@ -300,5 +400,18 @@ def train_all_models(df):
     
     # Train clustering model
     ml_models.train_clustering_model(df)
+    
+    return ml_models
+
+def train_all_models_optimized(df):
+    """Train optimized ML models with reduced complexity for faster deployment"""
+    ml_models = MarketingMLModels()
+    
+    print(f"🚀 Training optimized models on {len(df)} samples...")
+    
+    # Train models with reduced complexity
+    ml_models.train_roi_prediction_model_fast(df)
+    ml_models.train_classification_model_fast(df)
+    ml_models.train_clustering_model_fast(df)
     
     return ml_models

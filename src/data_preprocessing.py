@@ -12,6 +12,7 @@ class DataPreprocessor:
     def __init__(self):
         self.scalers = {}
         self.encoders = {}
+        self._processed_cache = {}
         
     def load_data(self, file_path):
         """Load marketing campaign data"""
@@ -163,6 +164,29 @@ def preprocess_marketing_data(input_file, output_file):
     # Save preprocessed data
     preprocessor.save_preprocessed_data(df_final, output_file)
     
+    return df_final, preprocessor
+
+def preprocess_marketing_data_fast(df):
+    """Fast preprocessing function for uploaded data"""
+    preprocessor = DataPreprocessor()
+    
+    # Create cache key based on data shape and hash
+    cache_key = f"{df.shape}_{hash(str(df.iloc[0].tolist()) if len(df) > 0 else 'empty')}"
+    
+    # Check if already processed
+    if cache_key in preprocessor._processed_cache:
+        print("⚡ Using cached preprocessing results")
+        return preprocessor._processed_cache[cache_key], preprocessor
+    
+    # Process data
+    df_clean = preprocessor.clean_data(df.copy())
+    df_features = preprocessor.engineer_features(df_clean)
+    df_final = preprocessor.encode_categorical_features(df_features)
+    
+    # Cache the result
+    preprocessor._processed_cache[cache_key] = df_final
+    
+    print(f"⚡ Fast preprocessing complete! Shape: {df_final.shape}")
     return df_final, preprocessor
 
 if __name__ == "__main__":

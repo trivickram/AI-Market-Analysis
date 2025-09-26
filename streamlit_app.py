@@ -13,9 +13,9 @@ import os
 
 # Import custom modules with error handling
 try:
-    from src.data_preprocessing import DataPreprocessor, preprocess_marketing_data
+    from src.data_preprocessing import DataPreprocessor, preprocess_marketing_data_fast, preprocess_marketing_data
     from src.eda_visualizations import MarketingVisualizer, create_dashboard_plots
-    from src.ml_models import MarketingMLModels, train_all_models
+    from src.ml_models import MarketingMLModels, train_all_models, train_all_models_optimized
     from src.ai_assistant import MarketingAIAssistant, create_ai_assistant
     import config
     MODULES_AVAILABLE = True
@@ -77,8 +77,8 @@ def load_data(uploaded_file=None):
         if uploaded_file is not None:
             df = pd.read_csv(uploaded_file)
             if MODULES_AVAILABLE:
-                preprocessor = DataPreprocessor()
-                df_processed = preprocessor.clean_data(df)
+                # Use fast preprocessing for uploaded data
+                df_processed, preprocessor = preprocess_marketing_data_fast(df)
                 return df_processed, preprocessor
             else:
                 return df, None
@@ -100,32 +100,53 @@ def load_data(uploaded_file=None):
         st.error(f"Error loading data: {e}")
         return None, None
 
-# Load and cache ML models
+# Load and cache ML models with optimization
 @st.cache_resource
 def load_models(df):
-    """Load or train ML models"""
+    """Load or train ML models with performance optimizations"""
     if not MODULES_AVAILABLE:
         return None
         
     try:
+        # Use session state to cache models
+        if 'ml_models' in st.session_state:
+            return st.session_state.ml_models
+            
         model_path = "models/trained_models.pkl"
         ml_models = MarketingMLModels()
         
+        # Try to load existing models first
         if os.path.exists(model_path):
             if ml_models.load_models(model_path):
+                st.session_state.ml_models = ml_models
                 return ml_models
         
-        # Train models if not found
-        with st.spinner("Training AI models... This may take a few minutes."):
-            ml_models = train_all_models(df)
-            
-            # Create models directory if it doesn't exist
-            os.makedirs("models", exist_ok=True)
-            ml_models.save_models(model_path)
+        # If dataset is large, sample it for faster training
+        training_df = df
+        if len(df) > 1000:
+            st.info("⚡ Optimizing model training for large dataset...")
+            training_df = df.sample(n=1000, random_state=42)
+        
+        # Train models with optimization
+        with st.spinner("Training AI models... This may take a moment."):
+            try:
+                # Use optimized training for faster deployment
+                ml_models = train_all_models_optimized(training_df)
+                
+                # Create models directory and save
+                os.makedirs("models", exist_ok=True)
+                ml_models.save_models(model_path)
+                
+                # Cache in session state
+                st.session_state.ml_models = ml_models
+                
+            except Exception as e:
+                st.warning(f"Model training failed: {e}. Using basic analytics mode.")
+                return None
         
         return ml_models
     except Exception as e:
-        st.error(f"Error loading models: {e}")
+        st.warning(f"Error with ML models: {e}. Using basic analytics mode.")
         return None
     
     return ml_models
@@ -170,8 +191,15 @@ def main():
     st.sidebar.title("📊 Navigation")
     page = st.sidebar.selectbox("Choose a page", list(config.PAGES.values()))
     
-    # Load ML models
-    ml_models = load_models(df) if MODULES_AVAILABLE else None
+    # Load ML models with better error handling
+    ml_models = None
+    if MODULES_AVAILABLE and df is not None and len(df) > 0:
+        try:
+            ml_models = load_models(df)
+        except Exception as e:
+            st.warning(f"ML models unavailable: {e}. Dashboard will show basic analytics only.")
+    elif MODULES_AVAILABLE:
+        st.info("⚡ Upload data to enable AI-powered predictions and recommendations.")
     
     # Show warning if modules not available
     if not MODULES_AVAILABLE:
