@@ -43,27 +43,52 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Custom CSS for better styling
+# Custom CSS for better visibility and styling
 st.markdown("""
 <style>
     .main-header {
         font-size: 3rem;
-        color: #1f77b4;
+        color: #0066cc;
         text-align: center;
         margin-bottom: 2rem;
+        font-weight: bold;
     }
     .metric-card {
-        background-color: #f0f2f6;
-        padding: 1rem;
-        border-radius: 10px;
+        background-color: #ffffff;
+        padding: 1.5rem;
+        border-radius: 12px;
         margin: 0.5rem 0;
+        border: 2px solid #e1e5e9;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
     }
     .insight-box {
-        background-color: #e8f4fd;
-        padding: 1rem;
-        border-radius: 10px;
-        border-left: 5px solid #1f77b4;
+        background-color: #f8f9fa;
+        padding: 1.5rem;
+        border-radius: 12px;
+        border-left: 6px solid #0066cc;
         margin: 1rem 0;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        color: #2c3e50;
+    }
+    /* Enhanced metric styling */
+    .stMetric {
+        background-color: #ffffff;
+        padding: 1rem;
+        border-radius: 8px;
+        border: 1px solid #dee2e6;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    }
+    .stMetric > div {
+        color: #2c3e50 !important;
+    }
+    .stMetric [data-testid="metric-container"] > div:first-child {
+        color: #6c757d !important;
+        font-weight: 600;
+    }
+    .stMetric [data-testid="metric-container"] > div:nth-child(2) {
+        color: #212529 !important;
+        font-weight: bold;
+        font-size: 1.5rem;
     }
 </style>
 """, unsafe_allow_html=True)

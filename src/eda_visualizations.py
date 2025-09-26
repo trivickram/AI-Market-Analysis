@@ -14,7 +14,8 @@ import streamlit as st
 class MarketingVisualizer:
     def __init__(self, df):
         self.df = df
-        self.colors = ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd', '#8c564b']
+        # High-contrast color palette for better visibility
+        self.colors = ['#0066cc', '#28a745', '#dc3545', '#ffc107', '#6f42c1', '#fd7e14', '#20c997', '#e83e8c', '#6c757d', '#17a2b8']
     
     def create_overview_metrics(self):
         """Create overview KPI metrics"""
@@ -34,9 +35,15 @@ class MarketingVisualizer:
             x='Conversion_Rate', 
             nbins=20,
             title='Distribution of Conversion Rates',
-            labels={'count': 'Number of Campaigns', 'Conversion_Rate': 'Conversion Rate (%)'}
+            labels={'count': 'Number of Campaigns', 'Conversion_Rate': 'Conversion Rate (%)'},
+            color_discrete_sequence=[self.colors[0]]
         )
-        fig.update_layout(showlegend=False)
+        fig.update_layout(
+            showlegend=False,
+            plot_bgcolor='white',
+            paper_bgcolor='white',
+            font=dict(size=12, color='#2c3e50')
+        )
         return fig
     
     def plot_roi_by_campaign_type(self):
@@ -46,9 +53,16 @@ class MarketingVisualizer:
             x='Campaign_Type', 
             y='ROI',
             title='ROI Distribution by Campaign Type',
-            color='Campaign_Type'
+            color='Campaign_Type',
+            color_discrete_sequence=self.colors
         )
-        fig.update_layout(xaxis_tickangle=45)
+        fig.update_layout(
+            xaxis_tickangle=45,
+            plot_bgcolor='white',
+            paper_bgcolor='white',
+            font=dict(size=12, color='#2c3e50'),
+            showlegend=True
+        )
         return fig
     
     def plot_clicks_vs_impressions(self):
@@ -58,9 +72,16 @@ class MarketingVisualizer:
             x='Impressions', 
             y='Clicks',
             color='Campaign_Type',
+            color_discrete_sequence=self.colors,
             size='ROI',
             hover_data=['Conversion_Rate', 'Engagement_Score'],
             title='Clicks vs Impressions by Campaign Type'
+        )
+        fig.update_layout(
+            plot_bgcolor='white',
+            paper_bgcolor='white',
+            font=dict(size=12, color='#2c3e50'),
+            showlegend=True
         )
         return fig
     
@@ -71,7 +92,13 @@ class MarketingVisualizer:
         fig = px.pie(
             values=segment_counts.values,
             names=segment_counts.index,
-            title='Customer Segment Distribution'
+            title='Customer Segment Distribution',
+            color_discrete_sequence=self.colors
+        )
+        fig.update_layout(
+            plot_bgcolor='white',
+            paper_bgcolor='white',
+            font=dict(size=12, color='#2c3e50')
         )
         return fig
     
@@ -85,15 +112,22 @@ class MarketingVisualizer:
                 x='Date', 
                 y='Engagement_Score',
                 color='Campaign_Type',
-                title='Engagement Score Trends Over Time'
+                title='Engagement Score Trends Over Time',
+                color_discrete_sequence=self.colors
             )
-            fig.update_layout(xaxis_tickangle=45)
+            fig.update_layout(
+                xaxis_tickangle=45,
+                plot_bgcolor='white',
+                paper_bgcolor='white',
+                font=dict(size=12, color='#2c3e50'),
+                showlegend=True
+            )
             return fig
         else:
             return None
     
     def plot_geographic_performance(self):
-        """Create bar plot of performance by location"""
+        """Create bar plot of performance by location with distinct colors"""
         location_performance = self.df.groupby('Location').agg({
             'Conversion_Rate': 'mean',
             'ROI': 'mean',
@@ -102,15 +136,25 @@ class MarketingVisualizer:
         
         fig = make_subplots(
             rows=1, cols=3,
-            subplot_titles=('Avg Conversion Rate', 'Avg ROI', 'Avg Engagement'),
+            subplot_titles=('Avg Conversion Rate (%)', 'Avg ROI (x)', 'Avg Engagement Score'),
             specs=[[{"secondary_y": False}, {"secondary_y": False}, {"secondary_y": False}]]
         )
+        
+        # Define distinct colors for each metric
+        colors = {
+            'conversion': '#28a745',  # Green for conversion rate
+            'roi': '#ffc107',         # Gold for ROI 
+            'engagement': '#dc3545'   # Red for engagement
+        }
         
         # Conversion Rate
         fig.add_trace(
             go.Bar(x=location_performance['Location'], 
                    y=location_performance['Conversion_Rate'],
-                   name='Conversion Rate'),
+                   name='Conversion Rate',
+                   marker_color=colors['conversion'],
+                   text=[f"{val:.1f}%" for val in location_performance['Conversion_Rate']],
+                   textposition='outside'),
             row=1, col=1
         )
         
@@ -118,7 +162,10 @@ class MarketingVisualizer:
         fig.add_trace(
             go.Bar(x=location_performance['Location'], 
                    y=location_performance['ROI'],
-                   name='ROI'),
+                   name='ROI',
+                   marker_color=colors['roi'],
+                   text=[f"{val:.2f}x" for val in location_performance['ROI']],
+                   textposition='outside'),
             row=1, col=2
         )
         
@@ -126,15 +173,31 @@ class MarketingVisualizer:
         fig.add_trace(
             go.Bar(x=location_performance['Location'], 
                    y=location_performance['Engagement_Score'],
-                   name='Engagement'),
+                   name='Engagement',
+                   marker_color=colors['engagement'],
+                   text=[f"{val:.1f}" for val in location_performance['Engagement_Score']],
+                   textposition='outside'),
             row=1, col=3
         )
         
         fig.update_layout(
             title_text="Performance Metrics by Location",
             showlegend=False,
-            height=400
+            height=500,
+            plot_bgcolor='white',
+            paper_bgcolor='white',
+            font=dict(size=12, color='#2c3e50')
         )
+        
+        # Update x-axes
+        fig.update_xaxes(title_text="Location", row=1, col=1, tickangle=45)
+        fig.update_xaxes(title_text="Location", row=1, col=2, tickangle=45)
+        fig.update_xaxes(title_text="Location", row=1, col=3, tickangle=45)
+        
+        # Update y-axes with appropriate labels
+        fig.update_yaxes(title_text="Conversion Rate (%)", row=1, col=1)
+        fig.update_yaxes(title_text="ROI (x)", row=1, col=2)
+        fig.update_yaxes(title_text="Engagement Score", row=1, col=3)
         
         return fig
     
@@ -176,7 +239,13 @@ class MarketingVisualizer:
             correlation_matrix,
             title='Feature Correlation Heatmap',
             color_continuous_scale='RdBu_r',
-            aspect='auto'
+            aspect='auto',
+            text_auto='.2f'
+        )
+        fig.update_layout(
+            plot_bgcolor='white',
+            paper_bgcolor='white',
+            font=dict(size=12, color='#2c3e50')
         )
         
         return fig
